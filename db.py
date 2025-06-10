@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel, Field
 import databases
 import sqlalchemy
@@ -76,12 +76,17 @@ async def update(id: int, r: RegisterIn = Depends()):
         name=r.name,
         date_created=datetime.utcnow(),
     )
-    record_id = await database.execute(query)
-    query = register.select().where(register.c.id == record_id)
+    await database.execute(query)
+    query = register.select().where(register.c.id == id)
     row = await database.fetch_one(query)
     return {**row}
 
 @app.delete("/register/{id}", response_model=Register)
 async def delete(id: int):
+    query = register.select().where(register.c.id == id)
+    row = await database.fetch_one(query)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Record not found")
     query = register.delete().where(register.c.id == id)
     await database.execute(query)
+    return {**row}
